@@ -24,6 +24,73 @@ A simple, single threaded anonymous forum web application built with Flask and P
 - PostgreSQL 15 or higher
 - pip (Python package manager)
 
+## 🧰 Required Software
+
+- **Docker Engine / Docker Desktop**: 20.10+
+  - Windows/macOS: Docker Desktop
+  - Linux: Docker Engine (plus Compose plugin)
+  - Download: [Docker Desktop](https://www.docker.com/products/docker-desktop) • [Docker Engine](https://docs.docker.com/engine/install/)
+  - Verify: `docker --version`
+
+- **Docker Compose v2**: Included with Docker Desktop, or `docker compose` plugin on Linux
+  - Docs: [Compose V2](https://docs.docker.com/compose/)
+  - Verify: `docker compose version` (or `docker-compose --version`)
+
+- **Git**: For cloning the repository
+  - Download: [git-scm.com](https://git-scm.com/downloads)
+  - Verify: `git --version`
+
+- **Python 3.11+**: For local development and running tests outside Docker
+  - Download: [python.org](https://www.python.org/downloads/)
+  - Verify: `python --version` and `pip --version`
+
+- **PostgreSQL 15+**: Only required for local development without Docker
+  - Download: [postgresql.org](https://www.postgresql.org/download/)
+  - Verify: `psql --version`
+
+- Optional tools
+  - **PowerShell 7+** or **Bash**: convenient shell environment
+  - **curl**: for quick HTTP checks (`curl --version`)
+
+### Windows
+- Install Docker Desktop and enable WSL 2 backend if prompted.
+- Install Python from `python.org` or Microsoft Store (ensure “Add to PATH”).
+- Install Git for Windows.
+- PostgreSQL: use the official Windows installer.
+
+### Quick verification (Windows PowerShell)
+```powershell
+docker --version
+docker compose version
+git --version
+python --version
+pip --version
+psql --version
+```
+
+### Linux
+- Install Docker Engine and Compose Plugin (distro-specific):
+  - Ubuntu/Debian (example):
+    ```bash
+    sudo apt update
+    sudo apt install -y docker.io docker-compose-plugin
+    sudo systemctl enable --now docker
+    sudo usermod -aG docker $USER  # re-login required
+    ```
+- Install Python 3.11+ and pip via your package manager.
+- Install Git via your package manager.
+- PostgreSQL: install via your package manager (or use Docker instead).
+
+### Quick verification (Linux / Bash)
+```bash
+docker --version
+docker compose version || docker-compose --version
+git --version
+python3 --version
+pip3 --version
+psql --version
+```
+
 ## 🚀 Quick Start with Docker
 
 ### 1. Clone the Repository
