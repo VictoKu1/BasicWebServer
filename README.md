@@ -178,6 +178,12 @@ docker-compose build
 
 # Run tests in a temporary container
 docker-compose run --rm web python -m pytest -v
+
+# Recommended: allow a writable cache dir only for tests (uses web_test service)
+docker-compose run --rm web_test python -m pytest -v
+
+# If you see pytest cache warnings due to read-only FS, disable cache:
+docker-compose run --rm web python -m pytest -v -p no:cacheprovider
 ```
 
 Note: The test suite uses an in-memory SQLite database and does not require the PostgreSQL container to be running
@@ -411,6 +417,18 @@ This occurs when the Docker image was built before tests were added to the image
 ```bash
 docker-compose build
 docker-compose run --rm web python -m pytest -v
+```
+
+### Pytest cache warnings in read-only container
+
+The `web` container filesystem is hardened as read-only, so pytest may warn about failing to write `.pytest_cache`. This is harmless. Options:
+
+```bash
+# Preferred: disable pytest cache for the run
+docker-compose run --rm web python -m pytest -v -p no:cacheprovider
+
+# Or mount a writable cache directory
+docker-compose run --rm -v /tmp/pytest_cache:/app/.pytest_cache web python -m pytest -v
 ```
 
 ## 📊 Monitoring and Logs

@@ -37,5 +37,5 @@ except Exception: \
     exit(1) \
 PY
 
-# Run the application
-CMD ["python", "-m", "app.app"]
+# Run the application with Gunicorn
+CMD ["gunicorn", "-w", "2", "-k", "gthread", "--threads", "4", "--timeout", "30", "--graceful-timeout", "30", "-b", "0.0.0.0:5000", "app.app:create_app()"]

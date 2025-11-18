@@ -1,6 +1,7 @@
 """Main Flask application for anonymous forum."""
 import os
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, g
+import time
 from dotenv import load_dotenv
 from app.models import db, Comment
 from flask_limiter import Limiter
@@ -53,6 +54,15 @@ def create_app():
         """Main page showing all comments."""
         comments = Comment.query.order_by(Comment.created_at.asc()).all()
         return render_template('index.html', comments=comments)
+
+    @app.route('/robots.txt')
+    def robots_txt():
+        return ("User-agent: *\nDisallow:\n", 200, {'Content-Type': 'text/plain; charset=utf-8'})
+
+    @app.route('/favicon.ico')
+    def favicon():
+        # Avoid 404 noise; serve empty icon
+        return ("", 204)
     
     @app.route('/api/comments', methods=['GET'])
     @limiter.limit("300 per minute")
@@ -112,6 +122,8 @@ def create_app():
         resp.headers['X-Content-Type-Options'] = 'nosniff'
         resp.headers['X-Frame-Options'] = 'DENY'
         resp.headers['Referrer-Policy'] = 'same-origin'
+        resp.headers['Permissions-Policy'] = "geolocation=(), microphone=(), camera=(), payment=()"
+        resp.headers['Cache-Control'] = 'no-store'
         # CSP tuned for inline CSS/JS used in the template
         resp.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
@@ -121,6 +133,60 @@ def create_app():
             "object-src 'none'"
         )
         return resp
+
+    @app.before_request
+    def start_timer():
+        g._start_time = time.time()
+
+    @app.after_request
+    def log_request(resp):
+        try:
+            duration_ms = int((time.time() - getattr(g, "_start_time", time.time())) * 1000)
+            log_payload = {
+                "method": request.method,
+                "path": request.path,
+                "status": resp.status_code,
+                "duration_ms": duration_ms,
+                "remote_ip": request.headers.get("X-Forwarded-For", request.remote_addr),
+                "user_agent": request.headers.get("User-Agent", ""),
+            }
+            # Basic stdout logging in JSON-like format
+            print(log_payload, flush=True)
+        except Exception:
+            pass
+        return resp
+
+    # Error handlers (HTML for pages, JSON for API)
+    def _error_response(status_code: int, message: str):
+        if request.path.startswith('/api/'):
+            return jsonify({'error': message, 'status': status_code}), status_code
+        # Simple HTML fallback
+        return (
+            f"<html><head><title>{status_code}</title></head>"
+            f"<body><h1>{status_code}</h1><p>{message}</p></body></html>",
+            status_code,
+            {'Content-Type': 'text/html; charset=utf-8'},
+        )
+
+    @app.errorhandler(400)
+    def bad_request(_e):
+        return _error_response(400, 'Bad Request')
+
+    @app.errorhandler(403)
+    def forbidden(_e):
+        return _error_response(403, 'Forbidden')
+
+    @app.errorhandler(404)
+    def not_found(_e):
+        return _error_response(404, 'Not Found')
+
+    @app.errorhandler(429)
+    def too_many(_e):
+        return _error_response(429, 'Too Many Requests')
+
+    @app.errorhandler(500)
+    def server_error(_e):
+        return _error_response(500, 'Internal Server Error')
     
     return app
 

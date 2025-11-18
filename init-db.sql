@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS comments (
     id SERIAL PRIMARY KEY,
-    content TEXT NOT NULL,
+    content TEXT NOT NULL CHECK (char_length(content) <= 5000),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
