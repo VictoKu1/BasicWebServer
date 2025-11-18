@@ -1,0 +1,96 @@
+"""Main Flask application for anonymous forum."""
+import os
+from flask import Flask, render_template, request, jsonify, redirect, url_for
+from dotenv import load_dotenv
+from app.models import db, Comment
+
+# Load environment variables
+load_dotenv()
+
+
+def create_app():
+    """Create and configure Flask application."""
+    app = Flask(__name__)
+    
+    # Configuration
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+        'DATABASE_URL',
+        'postgresql://forumuser:forumpass@localhost:5432/forumdb'
+    )
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
+    # Initialize database
+    db.init_app(app)
+    
+    # Routes
+    @app.route('/')
+    def index():
+        """Main page showing all comments."""
+        comments = Comment.query.order_by(Comment.created_at.asc()).all()
+        return render_template('index.html', comments=comments)
+    
+    @app.route('/api/comments', methods=['GET'])
+    def get_comments():
+        """API endpoint to get all comments."""
+        comments = Comment.query.order_by(Comment.created_at.asc()).all()
+        return jsonify([comment.to_dict() for comment in comments])
+    
+    @app.route('/api/comments', methods=['POST'])
+    def post_comment():
+        """API endpoint to post a new comment."""
+        data = request.get_json()
+        
+        if not data or 'content' not in data:
+            return jsonify({'error': 'Content is required'}), 400
+        
+        content = data['content'].strip()
+        
+        if not content:
+            return jsonify({'error': 'Content cannot be empty'}), 400
+        
+        if len(content) > 5000:
+            return jsonify({'error': 'Content too long (max 5000 characters)'}), 400
+        
+        new_comment = Comment(content=content)
+        db.session.add(new_comment)
+        db.session.commit()
+        
+        return jsonify(new_comment.to_dict()), 201
+    
+    @app.route('/post', methods=['POST'])
+    def post_comment_form():
+        """Form endpoint to post a new comment."""
+        content = request.form.get('content', '').strip()
+        
+        if content:
+            new_comment = Comment(content=content)
+            db.session.add(new_comment)
+            db.session.commit()
+        
+        return redirect(url_for('index'))
+    
+    @app.route('/health')
+    def health():
+        """Health check endpoint."""
+        try:
+            # Check database connection
+            db.session.execute(db.text('SELECT 1'))
+            return jsonify({'status': 'healthy', 'database': 'connected'}), 200
+        except Exception as e:
+            return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
+    
+    return app
+
+
+if __name__ == '__main__':
+    app = create_app()
+    
+    # Create tables
+    with app.app_context():
+        db.create_all()
+    
+    # Run the application
+    host = os.getenv('FLASK_HOST', '0.0.0.0')
+    port = int(os.getenv('FLASK_PORT', 5000))
+    app.run(host=host, port=port, debug=False)
