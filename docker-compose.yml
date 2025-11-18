@@ -19,6 +19,16 @@ services:
     networks:
       - forum_network
 
+  redis:
+    image: redis:7-alpine
+    container_name: forum_redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    networks:
+      - forum_network
+    restart: unless-stopped
+
   web:
     build: .
     container_name: forum_web
@@ -27,11 +37,14 @@ services:
       FLASK_HOST: 0.0.0.0
       FLASK_PORT: 5000
       SECRET_KEY: change-this-to-a-random-secret-key
+      RATELIMIT_STORAGE_URL: redis://redis:6379/0
     ports:
       - "5000:5000"
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - forum_network
     restart: unless-stopped

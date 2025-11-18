@@ -205,6 +205,9 @@
         <div class="post-section">
             <h2>✍️ Add Your Comment</h2>
             <form method="POST" action="/post" id="commentForm">
+                {% if csrf_token is defined %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% endif %}
                 <div class="form-group">
                     <textarea 
                         name="content" 

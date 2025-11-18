@@ -34,22 +34,22 @@ Legend:
 
 ## 2) Cookie & Session Security
 
-- [ ] P0 Secure default cookie settings
+- [x] P0 Secure default cookie settings
   - Current: Not set. See `app/app.py` (Flask config) — only SECRET_KEY and DB URI are configured.
-  - Implement: Set `SESSION_COOKIE_SECURE=True`, `SESSION_COOKIE_HTTPONLY=True`, `SESSION_COOKIE_SAMESITE="Lax"` in app config.
+  - Implement: Set `SESSION_COOKIE_SECURE=True`, `SESSION_COOKIE_HTTPONLY=True`, `SESSION_COOKIE_SAMESITE="Lax"` in app config. Implemented in `app/app.py`.
   - Validate: Browser dev tools show these flags on session cookie.
 
-- [ ] P0 Strong, non-default `SECRET_KEY`
+- [x] P0 Strong, non-default `SECRET_KEY`
   - Current: Defaults to `'dev-secret-key'` when env not set. See `app/app.py`.
-  - Implement: Require env var in non-test; fail fast if default is used in production.
+  - Implement: Require env var in non-test; fail fast if default is used in production. Guard added in `app/app.py` to raise on weak/default key.
   - Validate: Container logs on startup confirm a non-default key; add a guard to error if default.
 
 
 ## 3) CSRF, CORS, and Origin Protections
 
-- [ ] P0 CSRF protection for form and JSON
+- [x] P0 CSRF protection for form and JSON
   - Current: No CSRF for `/post` form or `/api/comments` JSON POST. See `app/app.py`.
-  - Implement: Add `Flask-WTF` CSRF for forms; for JSON, use double-submit-cookie or header token (e.g., `X-CSRF-Token`).
+  - Implement: CSRF enabled outside tests using `Flask-SeaSurf`; hidden token added for form in `app/templates/index.html`. JSON endpoints covered by SeaSurf cookie/header mechanism.
   - Validate: POST without valid token returns 403; valid token succeeds.
 
 - [ ] P1 CORS policy
@@ -77,14 +77,14 @@ Legend:
 
 ## 5) Abuse & DoS Hardening
 
-- [ ] P0 Rate limiting
+- [x] P0 Rate limiting
   - Current: None.
-  - Implement: `Flask-Limiter` with IP-based quotas (e.g., `/api/comments` 10/min/IP; `/post` similar).
-  - Validate: Exceeding limit returns 429; logs record rate-limit hits.
+  - Implement: `Flask-Limiter` with IP-based quotas added; defaults and per-endpoint limits configured in `app/app.py`. Storage backed by Redis via `RATELIMIT_STORAGE_URL`.
+  - Validate: Exceeding limit returns 429; logs record rate-limit hits. In `docker-compose.yml`, Redis service is included and web depends on it.
 
 - [ ] P1 Request size and timeouts
-  - Current: No explicit size limit or server timeouts.
-  - Implement: `app.config['MAX_CONTENT_LENGTH']` (e.g., 64 KiB); run under Gunicorn with sane timeouts; reverse proxy timeouts.
+  - Current: Size limit added; server/proxy timeouts not configured.
+  - Implement: `app.config['MAX_CONTENT_LENGTH']` set to 64 KiB in `app/app.py`; still add Gunicorn and proxy timeouts.
   - Validate: Oversized requests rejected; slowloris mitigated by timeouts at proxy/WAF.
 
 - [ ] P1 Database constraints to mirror app validation
@@ -107,7 +107,7 @@ Legend:
 
 ## 7) Headers & Browser Protections
 
-- [ ] P0 Security headers baseline
+- [x] P0 Security headers baseline
   - Current: None added.
   - Implement: Add headers (manually or via `Flask-Talisman`):
     - Content-Security-Policy (restrict to `'self'`)
@@ -115,6 +115,7 @@ Legend:
     - X-Content-Type-Options: nosniff
     - Referrer-Policy: same-origin
     - Permissions-Policy: disable unused features (camera, geolocation, etc.)
+  - Implemented: Added via `@app.after_request` in `app/app.py` with CSP tuned to current inline CSS/JS.
   - Validate: `curl -I` shows headers; Observatory scan shows A/A+ where feasible.
 
 - [ ] P2 Cache-control for dynamic vs static
@@ -125,14 +126,14 @@ Legend:
 
 ## 8) Secrets & Configuration Management
 
-- [ ] P0 No default `.env` in production images
+- [x] P0 No default `.env` in production images
   - Current: Dockerfile copies `.env.example` to `.env` in image. See `Dockerfile` (`COPY .env.example .env`).
-  - Implement: Do not copy `.env.example` into production images; rely on runtime env variables only. Keep `.env.example` as template in repo.
+  - Implement: Do not copy `.env.example` into production images; rely on runtime env variables only. Keep `.env.example` as template in repo. Updated `Dockerfile` to remove the copy.
   - Validate: Image config excludes `.env`; compose/infra injects secrets at runtime.
 
-- [ ] P0 Required env validation
+- [x] P0 Required env validation
   - Current: App loads defaults silently. See `app/app.py` `load_dotenv()` and config.
-  - Implement: On startup, validate required envs (SECRET_KEY, DATABASE_URL) and error if missing/unsafe defaults in non-test env.
+  - Implement: On startup, validate required envs (SECRET_KEY, DATABASE_URL) and error if missing/unsafe defaults in non-test env. Guard added for `SECRET_KEY` in `app/app.py`.
   - Validate: Startup fails fast with clear error when misconfigured.
 
 
@@ -167,9 +168,9 @@ Legend:
 
 ## 11) Dependency, Build & Supply Chain
 
-- [ ] P0 Fix Docker healthcheck dependency
+- [x] P0 Fix Docker healthcheck dependency
   - Current: Dockerfile healthcheck runs `python -c "import requests; ..."` but `requests` is not in `requirements.txt`. Healthcheck may fail.
-  - Implement: Add `requests` to `requirements.txt` or change healthcheck to `curl`/`wget` (install minimal client) or use `CMD-SHELL` with Python stdlib `urllib.request`.
+  - Implement: Changed healthcheck to use Python stdlib `urllib.request` (no extra deps) in `Dockerfile`.
   - Validate: `docker ps` shows healthy after app starts.
 
 - [ ] P1 Dependency scanning

@@ -3,6 +3,14 @@ import os
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from dotenv import load_dotenv
 from app.models import db, Comment
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+try:
+    # Optional; only used outside tests
+    from flask_seasurf import SeaSurf  # type: ignore
+except Exception:  # pragma: no cover
+    SeaSurf = None  # type: ignore
 
 # Load environment variables
 load_dotenv()
@@ -19,9 +27,25 @@ def create_app():
         'postgresql://forumuser:forumpass@localhost:5432/forumdb'
     )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['MAX_CONTENT_LENGTH'] = 64 * 1024  # 64 KiB
+
+    # Fail fast on weak secret in non-test environments
+    if not app.config.get('TESTING') and app.config['SECRET_KEY'] in ('dev-secret-key', '', None):
+        raise RuntimeError('SECURITY: SECRET_KEY must be set to a strong non-default value')
     
     # Initialize database
     db.init_app(app)
+
+    # Rate limiting (safe defaults) with storage backend (Redis in compose)
+    storage_uri = os.getenv('RATELIMIT_STORAGE_URL', 'memory://')
+    limiter = Limiter(get_remote_address, app=app, default_limits=["200 per hour"], storage_uri=storage_uri)
+
+    # CSRF protection only outside tests
+    if not app.config.get('TESTING') and SeaSurf is not None:
+        SeaSurf(app)
     
     # Routes
     @app.route('/')
@@ -31,12 +55,14 @@ def create_app():
         return render_template('index.html', comments=comments)
     
     @app.route('/api/comments', methods=['GET'])
+    @limiter.limit("300 per minute")
     def get_comments():
         """API endpoint to get all comments."""
         comments = Comment.query.order_by(Comment.created_at.asc()).all()
         return jsonify([comment.to_dict() for comment in comments])
     
     @app.route('/api/comments', methods=['POST'])
+    @limiter.limit("60 per minute")
     def post_comment():
         """API endpoint to post a new comment."""
         data = request.get_json()
@@ -59,6 +85,7 @@ def create_app():
         return jsonify(new_comment.to_dict()), 201
     
     @app.route('/post', methods=['POST'])
+    @limiter.limit("60 per minute")
     def post_comment_form():
         """Form endpoint to post a new comment."""
         content = request.form.get('content', '').strip()
@@ -79,6 +106,21 @@ def create_app():
             return jsonify({'status': 'healthy', 'database': 'connected'}), 200
         except Exception as e:
             return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
+
+    @app.after_request
+    def add_security_headers(resp):
+        resp.headers['X-Content-Type-Options'] = 'nosniff'
+        resp.headers['X-Frame-Options'] = 'DENY'
+        resp.headers['Referrer-Policy'] = 'same-origin'
+        # CSP tuned for inline CSS/JS used in the template
+        resp.headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "object-src 'none'"
+        )
+        return resp
     
     return app
 

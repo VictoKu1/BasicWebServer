@@ -113,7 +113,7 @@ This will:
 - Build the Flask application container
 - Pull and start PostgreSQL database container
 - Initialize the database with the required schema
-- Start the web server on port 5000
+- Start Redis (rate limiting storage) and the web server on port 5000
 
 ### 3. Access the Forum
 Open your web browser and navigate to:
@@ -154,6 +154,10 @@ DATABASE_URL=postgresql://forumuser:forumpass@db:5432/forumdb
 # Server Configuration
 FLASK_HOST=0.0.0.0
 FLASK_PORT=5000
+
+# Rate Limiting (optional; defaults to in-memory if not set)
+# Use Redis in docker-compose by default:
+RATELIMIT_STORAGE_URL=redis://redis:6379/0
 ```
 
 ### Docker Compose Configuration
@@ -351,7 +355,7 @@ This is a basic forum for LAN use and traffic recording. For production use, con
 
 - ✅ Change default database credentials
 - ✅ Use strong SECRET_KEY for Flask sessions
-- ✅ Implement rate limiting
+- ✅ Rate limiting enabled (Redis-backed in Docker); tune limits as needed
 - ✅ Add input sanitization for XSS prevention
 - ✅ Use HTTPS with proper certificates
 - ✅ Implement CSRF protection
@@ -389,6 +393,17 @@ ports:
 2. Clear browser cache
 3. Check application logs: `docker-compose logs web`
 
+### Limiter storage warning (development)
+
+If you see a warning about in-memory storage for rate limiting, ensure Redis is running (Compose brings it up automatically) and that the environment variable is set:
+
+```bash
+# docker-compose.yml sets this for web:
+RATELIMIT_STORAGE_URL=redis://redis:6379/0
+```
+
+If you’re running locally without Docker, either install Redis and set the variable accordingly or accept the in-memory backend for development.
+
 ### Pytest: "file or directory not found: tests/"
 
 This occurs when the Docker image was built before tests were added to the image. Rebuild the image so it includes the `tests/` directory:
@@ -408,6 +423,11 @@ docker-compose logs -f web
 ### View Database Logs
 ```bash
 docker-compose logs -f db
+```
+
+### View Redis Logs
+```bash
+docker-compose logs -f redis
 ```
 
 ### View All Logs
