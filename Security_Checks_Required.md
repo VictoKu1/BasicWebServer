@@ -7,6 +7,14 @@ Legend:
 - Status: [x] present, [ ] missing
 
 
+## Scope and Non Goals
+
+- This application is intentionally anonymous. No authentication or authorization will be implemented.
+- Do not add login, registration, roles/permissions, MFA, JWT/OAuth, or user identity features.
+- All visitors can read the forum and post comments (subject to abuse protections like CSRF and rate limits).
+- Security efforts focus on transport security, input validation/sanitization, abuse prevention (rate limiting), safe defaults, and infrastructure hardening.
+
+
 ## 1) Transport & Perimeter Security
 
 - [ ] P0 Enforce HTTPS and HSTS
