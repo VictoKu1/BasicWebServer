@@ -77,6 +77,7 @@ psql --version
     sudo systemctl enable --now docker
     sudo usermod -aG docker $USER  # re-login required
     ```
+  - Note: You must log out and back in (or reboot) for group changes to take effect. Until then, use `sudo` with Docker commands (e.g., `sudo docker compose version`).
 - Install Python 3.11+ and pip via your package manager.
 - Install Git via your package manager.
 - PostgreSQL: install via your package manager (or use Docker instead).
@@ -103,6 +104,10 @@ cd BasicWebServer
 ```bash
 docker-compose up -d
 ```
+
+> Note (Linux): If your user is not in the `docker` group or you haven’t re-logged after adding it, prefix Docker commands with `sudo`, for example:
+> - `sudo docker compose up -d` (Compose v2)
+> - `sudo docker-compose up -d` (legacy Compose)
 
 This will:
 - Build the Flask application container
