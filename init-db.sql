@@ -13,3 +13,21 @@ CREATE INDEX IF NOT EXISTS idx_comments_created_at ON comments(created_at);
 -- Insert a welcome message
 INSERT INTO comments (content, created_at) VALUES 
 ('Welcome to the Anonymous Forum! This is a LAN-based discussion board where you can share your thoughts freely.', CURRENT_TIMESTAMP);
+
+-- Least-privilege application user
+DO
+$$
+BEGIN
+   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'forumapp') THEN
+      CREATE ROLE forumapp LOGIN PASSWORD 'forumapppass';
+   END IF;
+END
+$$;
+
+GRANT CONNECT ON DATABASE forumdb TO forumapp;
+GRANT USAGE ON SCHEMA public TO forumapp;
+GRANT SELECT, INSERT ON TABLE comments TO forumapp;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO forumapp;
+
+-- Ensure future tables also grant minimal privileges to forumapp
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT ON TABLES TO forumapp;

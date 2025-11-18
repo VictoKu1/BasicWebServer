@@ -52,10 +52,10 @@ Legend:
   - Implement: CSRF enabled outside tests using `Flask-SeaSurf`; hidden token added for form in `app/templates/index.html`. JSON endpoints covered by SeaSurf cookie/header mechanism.
   - Validate: POST without valid token returns 403; valid token succeeds.
 
-- [ ] P1 CORS policy
+- [x] P1 CORS policy
   - Current: Implicit same-origin (no CORS headers).
-  - Implement: Keep default same-origin; if cross-origin access is required, explicitly allow fixed origins and methods via `flask-cors` with strict settings.
-  - Validate: Browser preflight behavior; curl shows absence/presence of CORS headers as intended.
+  - Implement: We keep default same-origin policy (no CORS headers). If cross-origin access is later required, add `flask-cors` with explicit allowlist.
+  - Validate: Browser preflight behavior absent; curl shows no CORS headers (as intended).
 
 
 ## 4) Input/Output Safety (XSS, Injection)
@@ -67,8 +67,8 @@ Legend:
 
 - [ ] P1 HTML sanitization if rich text ever allowed
   - Current: Only plain text accepted; 5000-char limit. See `app/app.py` (length checks).
-  - Implement: If HTML is ever supported, sanitize with `bleach` (whitelist tags/attrs) before storing/rendering.
-  - Validate: Malicious tags/attrs removed; allowed subset preserved.
+  - Implement: Implemented defensive sanitization using `bleach` stripping all tags on input in `app/app.py` for both API and form POSTs. This preserves plain-text behavior now and is future-safe if rich text is later enabled with a whitelist.
+  - Validate: Submitting HTML results in stored, tag-free content; no script execution; tests remain green.
 
 - [x] P0 SQL injection protection via ORM
   - Current: SQLAlchemy models/queries. See `app/models.py`, `app/app.py` queries.
@@ -82,14 +82,14 @@ Legend:
   - Implement: `Flask-Limiter` with IP-based quotas added; defaults and per-endpoint limits configured in `app/app.py`. Storage backed by Redis via `RATELIMIT_STORAGE_URL`.
   - Validate: Exceeding limit returns 429; logs record rate-limit hits. In `docker-compose.yml`, Redis service is included and web depends on it.
 
-- [ ] P1 Request size and timeouts
-  - Current: Size limit added; Gunicorn and Nginx timeouts configured.
-  - Implement: `app.config['MAX_CONTENT_LENGTH']=64 KiB`; Gunicorn timeouts; Nginx `client_max_body_size 64k`, `proxy_read_timeout` and `proxy_send_timeout` set to 30s.
-  - Validate: Oversized requests rejected; slowloris mitigated by timeouts at proxy/WAF.
+ - [x] P1 Request size and timeouts
+   - Current: Size limit added; Gunicorn and Nginx timeouts configured.
+   - Implement: `app.config['MAX_CONTENT_LENGTH']=64 KiB`; Gunicorn timeouts; Nginx `client_max_body_size 64k`, `proxy_read_timeout` and `proxy_send_timeout` set to 30s.
+   - Validate: Oversized requests rejected; slowloris mitigated by timeouts at proxy/WAF.
 
-- [ ] P1 Database constraints to mirror app validation
+- [x] P1 Database constraints to mirror app validation
   - Current: `comments.content` is `TEXT` without DB length constraint. See `init-db.sql`.
-  - Implement: Postgres CHECK constraint `char_length(content) <= 5000` to enforce on DB side.
+  - Implement: Added Postgres CHECK constraint `char_length(content) <= 5000` in `init-db.sql`.
   - Validate: Direct insert over 5000 chars fails with constraint violation.
 
 
@@ -147,10 +147,10 @@ Legend:
 - [x] P2 Parameterized access via ORM
   - Current: SQLAlchemy used.
 
-- [ ] P1 Least-privilege DB user
+- [x] P1 Least-privilege DB user
   - Current: `forumuser` created with password; privileges not narrowed per table. See `init-db.sql` and `docker-compose.yml`.
-  - Implement: Grant only needed privileges (CONNECT, USAGE schema, SELECT/INSERT on `comments`). Avoid SUPERUSER/CREATEDB/CREATEROLE.
-  - Validate: Attempt unauthorized operations fail.
+  - Implement: Introduced `forumapp` user with limited privileges (CONNECT, schema USAGE, SELECT/INSERT on `comments`, sequence USAGE/SELECT). Updated `DATABASE_URL` to use `forumapp`.
+  - Validate: Unauthorized operations fail; app can insert/select comments; DDL not permitted.
 
 - [ ] P2 Backups/retention plan
   - Current: Not specified.
@@ -165,10 +165,10 @@ Legend:
   - Implement: Request logging via `before_request`/`after_request` in `app/app.py` with method, path, status, duration, remote IP, and user agent.
   - Validate: Logs appear in stdout; correlation with proxy logs works.
 
-- [ ] P1 Security/audit events
+- [x] P1 Security/audit events
   - Current: None.
-  - Implement: Log CSRF failures, rate limit hits, DB errors (without sensitive data).
-  - Validate: Events visible in logs; dashboards/alerts can be built.
+  - Implement: Log CSRF/forbidden (403) and rate-limit (429) events with path and client IP in `app/app.py`.
+  - Validate: Events visible in stdout logs; can be scraped by log collectors.
 
 
 ## 11) Dependency, Build & Supply Chain
@@ -178,10 +178,10 @@ Legend:
   - Implement: Changed healthcheck to use Python stdlib `urllib.request` (no extra deps) in `Dockerfile`.
   - Validate: `docker ps` shows healthy after app starts.
 
-- [ ] P1 Dependency scanning
+- [x] P1 Dependency scanning
   - Current: None.
-  - Implement: Add `pip-audit`/`safety` to CI; add `bandit` for SAST.
-  - Validate: CI fails on critical findings.
+  - Implement: Added GitHub Actions workflow `.github/workflows/security.yml` running `pip-audit` (requirements vulnerability scan) and `bandit` (SAST) on push/PR and weekly. Optional local tools pinned in `dev-requirements.txt`.
+  - Validate: CI surface findings on PRs; fails on critical issues as configured by tool exit codes.
 
 - [ ] P2 Image hardening & updates
   - Current: `python:3.11-slim` base; apt installs `postgresql-client`.

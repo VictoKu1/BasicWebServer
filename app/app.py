@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from app.models import db, Comment
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+import bleach
 
 try:
     # Optional; only used outside tests
@@ -87,8 +88,11 @@ def create_app():
         
         if len(content) > 5000:
             return jsonify({'error': 'Content too long (max 5000 characters)'}), 400
-        
-        new_comment = Comment(content=content)
+
+        # Sanitize HTML: strip all tags; future-safe if rich text is enabled
+        sanitized = bleach.clean(content, tags=[], attributes={}, strip=True)
+
+        new_comment = Comment(content=sanitized)
         db.session.add(new_comment)
         db.session.commit()
         
@@ -101,7 +105,8 @@ def create_app():
         content = request.form.get('content', '').strip()
         
         if content:
-            new_comment = Comment(content=content)
+            sanitized = bleach.clean(content, tags=[], attributes={}, strip=True)
+            new_comment = Comment(content=sanitized)
             db.session.add(new_comment)
             db.session.commit()
         
@@ -174,6 +179,11 @@ def create_app():
 
     @app.errorhandler(403)
     def forbidden(_e):
+        # Security event: possible CSRF or forbidden access
+        try:
+            print({"event": "csrf_or_forbidden", "path": request.path, "ip": request.headers.get("X-Forwarded-For", request.remote_addr)}, flush=True)
+        except Exception:
+            pass
         return _error_response(403, 'Forbidden')
 
     @app.errorhandler(404)
@@ -182,6 +192,11 @@ def create_app():
 
     @app.errorhandler(429)
     def too_many(_e):
+        # Security event: rate limit exceeded
+        try:
+            print({"event": "rate_limit_exceeded", "path": request.path, "ip": request.headers.get("X-Forwarded-For", request.remote_addr)}, flush=True)
+        except Exception:
+            pass
         return _error_response(429, 'Too Many Requests')
 
     @app.errorhandler(500)
