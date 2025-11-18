@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pyth
 
 # Copy application code
 COPY app/ ./app/
+COPY tests/ ./tests/
 COPY .env.example .env
 
 # Create a non-root user

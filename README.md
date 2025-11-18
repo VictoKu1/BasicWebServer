@@ -1,6 +1,6 @@
-# BasicWebServer - Anonymous Forum
+# BasicWebServer: Anonymous Forum
 
-A simple, single-threaded anonymous forum web application built with Flask and PostgreSQL. This application allows users on the same LAN to connect, read comments, and post their own thoughts without requiring login or sign-up.
+A simple, single threaded anonymous forum web application built with Flask and PostgreSQL. This application allows users on the same LAN to connect, read comments, and post their own thoughts without requiring login or sign up.
 
 ## 🌟 Features
 
@@ -97,12 +97,14 @@ Edit `docker-compose.yml` to customize:
 ### Running Tests with Docker
 
 ```bash
-# Build the test environment
+# Build the image (includes the tests/ directory)
 docker-compose build
 
 # Run tests in a temporary container
-docker-compose run --rm web python -m pytest tests/ -v
+docker-compose run --rm web python -m pytest -v
 ```
+
+Note: The test suite uses an in-memory SQLite database and does not require the PostgreSQL container to be running
 
 ### Running Tests Locally
 
@@ -113,12 +115,15 @@ pip install -r requirements.txt
 
 2. Run tests:
 ```bash
-pytest tests/ -v
+pytest -v
 ```
 
 3. Run tests with coverage:
 ```bash
-pytest tests/ -v --cov=app --cov-report=html
+# First install plugin if you don't have it:
+pip install pytest-cov
+
+pytest -v --cov=app --cov-report=html
 ```
 
 ### Test Coverage
@@ -268,29 +273,6 @@ python -m app.app
 
 Docker Desktop binds to 0.0.0.0 by default, making the service accessible from the LAN. Ensure your firewall allows incoming connections on port 5000.
 
-## 📁 Project Structure
-
-```
-BasicWebServer/
-├── app/
-│   ├── __init__.py          # Package initialization
-│   ├── app.py               # Main Flask application
-│   ├── models.py            # Database models
-│   └── templates/
-│       └── index.html       # Frontend template
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py          # Test configuration
-│   └── test_app.py          # Application tests
-├── Dockerfile               # Docker container definition
-├── docker-compose.yml       # Multi-container Docker setup
-├── init-db.sql             # Database initialization
-├── requirements.txt         # Python dependencies
-├── .env.example            # Environment variables template
-├── .gitignore              # Git ignore rules
-└── README.md               # This file
-```
-
 ## 🔒 Security Considerations
 
 This is a basic forum for LAN use and traffic recording. For production use, consider:
@@ -335,6 +317,15 @@ ports:
 2. Clear browser cache
 3. Check application logs: `docker-compose logs web`
 
+### Pytest: "file or directory not found: tests/"
+
+This occurs when the Docker image was built before tests were added to the image. Rebuild the image so it includes the `tests/` directory:
+
+```bash
+docker-compose build
+docker-compose run --rm web python -m pytest -v
+```
+
 ## 📊 Monitoring and Logs
 
 ### View Application Logs
@@ -359,30 +350,10 @@ docker-compose ps
 
 ## 🤝 Contributing
 
-This is a basic educational project. Feel free to fork and modify for your needs.
+This is a basic educational project. Feel free to fork and modify for your needs
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License,  see the [LICENSE](LICENSE) file for details.
 
-## 🎯 Purpose
 
-This web server is designed for recording user traffic patterns for classification purposes. The anonymous forum provides a functional interface that generates realistic user interactions with a web server, making it suitable for:
-
-- Network traffic analysis
-- User behavior pattern studies
-- Web server performance testing
-- Educational demonstrations
-- LAN-based communication experiments
-
-## 📞 Support
-
-For issues and questions:
-1. Check the Troubleshooting section
-2. Review application logs
-3. Verify your Docker and network configuration
-4. Create an issue on GitHub with:
-   - Description of the problem
-   - Steps to reproduce
-   - Environment details (OS, Docker version, etc.)
-   - Relevant log outputs
