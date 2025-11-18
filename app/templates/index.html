@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anonymous Forum</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .comments-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-height: 400px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .comment {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            transition: transform 0.2s;
+        }
+        
+        .comment:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .comment-content {
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .comment-timestamp {
+            font-size: 0.85em;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .no-comments {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+            font-size: 1.1em;
+        }
+        
+        .post-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            bottom: 20px;
+        }
+        
+        .post-section h2 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 1.3em;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 100px;
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .char-counter {
+            text-align: right;
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1em;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-weight: 600;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+            }
+            
+            .comments-section {
+                max-height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🗨️ Anonymous Forum</h1>
+            <p class="subtitle">Share your thoughts freely - no login required</p>
+        </header>
+        
+        <div class="comments-section">
+            <h2 style="margin-bottom: 20px; color: #2c3e50;">💬 Forum Comments</h2>
+            {% if comments %}
+                {% for comment in comments %}
+                <div class="comment">
+                    <div class="comment-content">{{ comment.content }}</div>
+                    <div class="comment-timestamp">Posted on {{ comment.created_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-comments">
+                    <p>No comments yet. Be the first to share your thoughts!</p>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="post-section">
+            <h2>✍️ Add Your Comment</h2>
+            <form method="POST" action="/post" id="commentForm">
+                <div class="form-group">
+                    <textarea 
+                        name="content" 
+                        id="content" 
+                        placeholder="Share your thoughts here... (max 5000 characters)"
+                        maxlength="5000"
+                        required
+                    ></textarea>
+                    <div class="char-counter">
+                        <span id="charCount">0</span> / 5000 characters
+                    </div>
+                </div>
+                <button type="submit" id="submitBtn">Send Comment</button>
+            </form>
+        </div>
+        
+        <div class="footer">
+            <p>Anonymous Forum - A simple LAN-based discussion board</p>
+            <p>All times are in UTC</p>
+        </div>
+    </div>
+    
+    <script>
+        // Character counter
+        const textarea = document.getElementById('content');
+        const charCount = document.getElementById('charCount');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        textarea.addEventListener('input', function() {
+            const length = this.value.length;
+            charCount.textContent = length;
+            
+            if (length === 0) {
+                submitBtn.disabled = true;
+            } else {
+                submitBtn.disabled = false;
+            }
+        });
+        
+        // Scroll to bottom of comments on page load
+        window.addEventListener('load', function() {
+            const commentsSection = document.querySelector('.comments-section');
+            commentsSection.scrollTop = commentsSection.scrollHeight;
+        });
+        
+        // Form submission handling
+        document.getElementById('commentForm').addEventListener('submit', function(e) {
+            const content = textarea.value.trim();
+            if (!content) {
+                e.preventDefault();
+                alert('Please enter a comment before submitting.');
+            }
+        });
+    </script>
+</body>
+</html>
