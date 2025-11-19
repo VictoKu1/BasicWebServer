@@ -16,6 +16,7 @@
             background-color: #f5f5f5;
             color: #333;
             line-height: 1.6;
+            padding-bottom: 0; /* input bar is fixed; section handles spacing */
         }
         
         .container {
@@ -48,11 +49,13 @@
             background: white;
             border-radius: 8px;
             padding: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 0;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             min-height: 400px;
             max-height: 600px;
             overflow-y: auto;
+            /* reserve space so latest messages are not hidden behind fixed input bar */
+            padding-bottom: 140px;
         }
         
         .comment {
@@ -90,11 +93,39 @@
         
         .post-section {
             background: white;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            position: sticky;
-            bottom: 20px;
+            padding: 12px 0;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+            border-top: 1px solid #eaeaea;
+        }
+
+        .post-section .inner {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .post-section .input-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .post-section .input-row textarea {
+            flex: 1 1 auto;
+        }
+
+        .post-section .input-row #submitBtn {
+            flex: 0 0 auto;
+            height: 48px;
+            padding: 0 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .post-section h2 {
@@ -205,31 +236,32 @@
         </div>
         
         <div class="post-section">
-            <h2>✍️ Add Your Comment</h2>
-            <form method="POST" action="/post" id="commentForm">
-                {% if csrf_token is defined %}
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                {% endif %}
-                <div class="form-group">
-                    <textarea 
-                        name="content" 
-                        id="content" 
-                        placeholder="Share your thoughts here... (max 5000 characters)"
-                        maxlength="5000"
-                        required
-                    ></textarea>
-                    <div class="char-counter">
-                        <span id="charCount">0</span> / 5000 characters
+            <div class="inner">
+                <h2>✍️ Add Your Comment</h2>
+                <form method="POST" action="/post" id="commentForm">
+                    {% if csrf_token is defined %}
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {% endif %}
+                    <div class="form-group">
+                        <div class="input-row">
+                            <textarea 
+                                name="content" 
+                                id="content" 
+                                placeholder="Share your thoughts here... (max 5000 characters)"
+                                maxlength="5000"
+                                required
+                            ></textarea>
+                            <button type="submit" id="submitBtn">Send Comment</button>
+                        </div>
+                        <div class="char-counter">
+                            <span id="charCount">0</span> / 5000 characters
+                        </div>
                     </div>
-                </div>
-                <button type="submit" id="submitBtn">Send Comment</button>
-            </form>
+                </form>
+            </div>
         </div>
         
-        <div class="footer">
-            <p>Anonymous Forum - A simple LAN-based discussion board</p>
-            <p>All times are in UTC</p>
-        </div>
+        
     </div>
     
     <script>
@@ -251,8 +283,13 @@
         
         // Scroll to bottom of comments on page load
         window.addEventListener('load', function() {
-            const commentsSection = document.querySelector('.comments-section');
-            commentsSection.scrollTop = commentsSection.scrollHeight;
+            scrollCommentsToBottom();
+            // Ensure after layout settles
+            setTimeout(scrollCommentsToBottom, 0);
+            setTimeout(scrollCommentsToBottom, 100);
+            // Focus textarea ready for input
+            const ta = document.getElementById('content');
+            if (ta) ta.focus();
         });
         
         // Form submission handling
@@ -307,6 +344,18 @@
                 );
             }
             container.innerHTML = parts.join('');
+            // Ensure view focuses latest messages
+            const last = container.lastElementChild;
+            if (last && typeof last.scrollIntoView === 'function') {
+                last.scrollIntoView({ block: 'end' });
+            }
+            requestAnimationFrame(scrollCommentsToBottom);
+            setTimeout(scrollCommentsToBottom, 0);
+        }
+        function scrollCommentsToBottom() {
+            const commentsSection = document.querySelector('.comments-section');
+            if (!commentsSection) return;
+            commentsSection.scrollTop = commentsSection.scrollHeight;
         }
         async function pollComments() {
             try {
@@ -317,9 +366,6 @@
                 if (sig !== lastSignature) {
                     lastSignature = sig;
                     renderComments(data);
-                    // keep view scrolled to bottom on updates
-                    const commentsSection = document.querySelector('.comments-section');
-                    commentsSection.scrollTop = commentsSection.scrollHeight;
                 }
             } catch (err) {
                 // ignore transient errors
@@ -327,6 +373,31 @@
         }
         setTimeout(pollComments, 500);
         setInterval(pollComments, 1500);
+
+        // Global keyboard-to-textarea focus and input
+        document.addEventListener('keydown', function(e) {
+            // Ignore when modifiers pressed
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            // If already typing in textarea, do nothing
+            if (document.activeElement === textarea) return;
+            const key = e.key;
+            if (!key) return;
+            // Consider character keys and common input keys
+            const isChar = key.length === 1;
+            const isSpace = key === ' ' || key === 'Spacebar';
+            const isBackspace = key === 'Backspace';
+            const isEnter = key === 'Enter';
+            if (isChar || isSpace || isBackspace || isEnter) {
+                textarea.focus();
+                // Insert typed character if any
+                if (isChar || isSpace) {
+                    textarea.value += isSpace ? ' ' : key;
+                    charCount.textContent = textarea.value.length;
+                    submitBtn.disabled = textarea.value.trim().length === 0;
+                }
+                e.preventDefault();
+            }
+        });
     </script>
 </body>
 </html>
