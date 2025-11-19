@@ -188,18 +188,20 @@
         
         <div class="comments-section">
             <h2 style="margin-bottom: 20px; color: #2c3e50;">💬 Forum Comments</h2>
-            {% if comments %}
-                {% for comment in comments %}
-                <div class="comment">
-                    <div class="comment-content">{{ comment.content }}</div>
-                    <div class="comment-timestamp">Posted on {{ comment.created_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</div>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="no-comments">
-                    <p>No comments yet. Be the first to share your thoughts!</p>
-                </div>
-            {% endif %}
+            <div id="commentsList">
+                {% if comments %}
+                    {% for comment in comments %}
+                    <div class="comment">
+                        <div class="comment-content">{{ comment.content }}</div>
+                        <div class="comment-timestamp">Posted on {{ comment.created_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-comments">
+                        <p>No comments yet. Be the first to share your thoughts!</p>
+                    </div>
+                {% endif %}
+            </div>
         </div>
         
         <div class="post-section">
@@ -275,6 +277,56 @@
                 document.getElementById('commentForm').submit();
             }
         });
+
+        // Live polling for new comments
+        let lastSignature = '';
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+        function renderComments(comments) {
+            const container = document.getElementById('commentsList');
+            if (!container) return;
+            if (!comments || comments.length === 0) {
+                container.innerHTML = '<div class="no-comments"><p>No comments yet. Be the first to share your thoughts!</p></div>';
+                return;
+            }
+            const parts = [];
+            for (const c of comments) {
+                const content = (c.content ?? '').toString();
+                const created = (c.created_at ?? '').toString();
+                parts.push(
+                    '<div class="comment">' +
+                        '<div class="comment-content">' + escapeHtml(content) + '</div>' +
+                        '<div class="comment-timestamp">Posted on ' + escapeHtml(created) + ' UTC</div>' +
+                    '</div>'
+                );
+            }
+            container.innerHTML = parts.join('');
+        }
+        async function pollComments() {
+            try {
+                const res = await fetch('/api/comments', { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                const sig = JSON.stringify(data.map(d => [d.id, d.content, d.created_at]));
+                if (sig !== lastSignature) {
+                    lastSignature = sig;
+                    renderComments(data);
+                    // keep view scrolled to bottom on updates
+                    const commentsSection = document.querySelector('.comments-section');
+                    commentsSection.scrollTop = commentsSection.scrollHeight;
+                }
+            } catch (err) {
+                // ignore transient errors
+            }
+        }
+        setTimeout(pollComments, 500);
+        setInterval(pollComments, 1500);
     </script>
 </body>
 </html>
