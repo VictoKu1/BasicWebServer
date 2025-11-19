@@ -12,6 +12,9 @@ A simple, single threaded anonymous forum web application built with Flask and P
 - **Responsive Frontend**: Clean, modern UI that works on desktop and mobile
 - **RESTful API**: JSON API endpoints for programmatic access
 - **Health Monitoring**: Built-in health check endpoint
+- **Live Updates**: Messages auto-refresh every ~1.5s; no manual reload needed
+- **Fast Input**: Press Enter to send; Shift+Enter inserts a newline
+- **Fixed Input Bar**: Comment box stays visible at the bottom of the page
 
 ## 📋 Prerequisites
 
@@ -224,6 +227,12 @@ The test suite includes:
 ```http
 GET /api/comments
 ```
+
+## 🖱️ Using the Forum
+
+- Type your message in the bottom input bar
+- Press Enter to send; use Shift+Enter for a new line
+- New messages appear automatically every ~1.5 seconds
 
 **Response:**
 ```json

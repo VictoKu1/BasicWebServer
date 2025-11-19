@@ -53,6 +53,8 @@ services:
       - ALL
     tmpfs:
       - /tmp
+    volumes:
+      - ./uploads:/app/uploads
 
   web_test:
     build: .

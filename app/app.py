@@ -1,15 +1,17 @@
 """Main Flask application for anonymous forum."""
 import os
-from flask import Flask, render_template, request, jsonify, redirect, url_for, g
+from flask import Flask, render_template, request, jsonify, redirect, url_for, g, send_from_directory
 import time
 import uuid
 import logging
+import os
 from dotenv import load_dotenv
 from app.models import db, Comment
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import bleach
 from app.logging_config import configure_logging
+from werkzeug.utils import secure_filename
 
 try:
     # Optional; only used outside tests
@@ -36,7 +38,16 @@ def create_app():
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    app.config['MAX_CONTENT_LENGTH'] = 64 * 1024  # 64 KiB
+    app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5 MiB to allow small attachments
+
+    # File uploads
+    app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', os.path.join(os.getcwd(), 'uploads'))
+    app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif', 'txt', 'pdf'}
+    try:
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    except Exception:
+        # In read-only root FS, UPLOAD_FOLDER should be a writable volume
+        pass
 
     # Fail fast on weak secret in non-test environments
     if not app.config.get('TESTING') and app.config['SECRET_KEY'] in ('dev-secret-key', '', None):
@@ -59,6 +70,11 @@ def create_app():
         """Main page showing all comments."""
         comments = Comment.query.order_by(Comment.created_at.asc()).all()
         return render_template('index.html', comments=comments)
+
+    @app.route('/uploads/<path:filename>')
+    def uploaded_file(filename: str):
+        """Serve uploaded files."""
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=False)
 
     @app.route('/robots.txt')
     def robots_txt():
@@ -107,10 +123,28 @@ def create_app():
     def post_comment_form():
         """Form endpoint to post a new comment."""
         content = request.form.get('content', '').strip()
-        
-        if content:
-            sanitized = bleach.clean(content, tags=[], attributes={}, strip=True)
-            new_comment = Comment(content=sanitized)
+
+        # Handle optional file attachment
+        attachment_url = None
+        file = request.files.get('attachment')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+            if ext in app.config['ALLOWED_EXTENSIONS']:
+                unique_name = f"{uuid.uuid4().hex}_{filename}"
+                save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
+                file.save(save_path)
+                attachment_url = url_for('uploaded_file', filename=unique_name)
+            else:
+                return redirect(url_for('index'))
+
+        if content or attachment_url:
+            # Sanitize text content
+            safe_text = bleach.clean(content, tags=[], attributes={}, strip=True) if content else ''
+            # If there is an attachment, append its URL on a new line
+            if attachment_url:
+                safe_text = (safe_text + '\n' if safe_text else '') + attachment_url
+            new_comment = Comment(content=safe_text)
             db.session.add(new_comment)
             db.session.commit()
         

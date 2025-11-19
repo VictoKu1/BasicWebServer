@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anonymous Forum</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <style>
         * {
             margin: 0;
@@ -237,13 +238,25 @@
         
         <div class="post-section">
             <div class="inner">
-                <h2>✍️ Add Your Comment</h2>
-                <form method="POST" action="/post" id="commentForm">
+                <form method="POST" action="/post" id="commentForm" enctype="multipart/form-data">
                     {% if csrf_token is defined %}
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     {% endif %}
                     <div class="form-group">
                         <div class="input-row">
+                            <div class="side-actions">
+                                <label class="attach-btn" for="attachment" title="Attach a file">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                        <path d="M21.44 11.05 12 20.5a6 6 0 0 1-8.49-8.49l9.44-9.44a4 4 0 1 1 5.66 5.66L9.88 17.5a2 2 0 0 1-2.83-2.83l8.49-8.49"/>
+                                    </svg>
+                                </label>
+                                <button type="button" id="settingsBtn" class="settings-btn" aria-label="Settings" title="Settings">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                                        <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 14.34 2h-4.68a.5.5 0 0 0-.5.42l-.36 2.54c-.58.22-1.12.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.27 7.18a.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02 .63 .06 .94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.43.34.69.22l2.39-.96c.51.41 1.05.72 1.63.94l.36 2.54c.05.24.26.42.5.42h4.68c.24 0 .45-.18.5-.42l.36-2.54c.58-.22 1.12-.53 1.63-.94l2.39.96c.26.12.55.02.69-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <input class="hidden-file" type="file" id="attachment" name="attachment" accept=".png,.jpg,.jpeg,.gif,.txt,.pdf">
                             <textarea 
                                 name="content" 
                                 id="content" 
@@ -251,7 +264,11 @@
                                 maxlength="5000"
                                 required
                             ></textarea>
-                            <button type="submit" id="submitBtn">Send Comment</button>
+                            <button type="submit" id="submitBtn" aria-label="Send" title="Send">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                                </svg>
+                            </button>
                         </div>
                         <div class="char-counter">
                             <span id="charCount">0</span> / 5000 characters
@@ -260,144 +277,51 @@
                 </form>
             </div>
         </div>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal-backdrop" aria-hidden="true" style="display:none;">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3>Settings</h3>
+                    <button type="button" class="modal-close" id="settingsClose" aria-label="Close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="settings-group">
+                        <label for="usernameInput">Display name</label>
+                        <input type="text" id="usernameInput" maxlength="32" placeholder="e.g. Alex">
+                        <small>This name will be prefixed to your messages.</small>
+                    </div>
+                    <hr>
+                    <div class="settings-group">
+                        <h4>Bulk sender (testing)</h4>
+                        <label for="bulkMessage">Message</label>
+                        <input type="text" id="bulkMessage" placeholder="Text to send multiple times">
+                        <div class="row">
+                            <div class="col">
+                                <label for="bulkCount">Count</label>
+                                <input type="number" id="bulkCount" min="1" max="500" value="5">
+                            </div>
+                            <div class="col">
+                                <label for="bulkInterval">Interval (ms)</label>
+                                <input type="number" id="bulkInterval" min="100" step="100" value="1000">
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button type="button" id="bulkStart">Start</button>
+                            <button type="button" id="bulkStop">Stop</button>
+                        </div>
+                        <small>Uses the same form submit endpoint; relies on live updates to display results.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="settingsSave">Save</button>
+                </div>
+            </div>
+        </div>
         
         
     </div>
     
-    <script>
-        // Character counter
-        const textarea = document.getElementById('content');
-        const charCount = document.getElementById('charCount');
-        const submitBtn = document.getElementById('submitBtn');
-        
-        textarea.addEventListener('input', function() {
-            const length = this.value.length;
-            charCount.textContent = length;
-            
-            if (length === 0) {
-                submitBtn.disabled = true;
-            } else {
-                submitBtn.disabled = false;
-            }
-        });
-        
-        // Scroll to bottom of comments on page load
-        window.addEventListener('load', function() {
-            scrollCommentsToBottom();
-            // Ensure after layout settles
-            setTimeout(scrollCommentsToBottom, 0);
-            setTimeout(scrollCommentsToBottom, 100);
-            // Focus textarea ready for input
-            const ta = document.getElementById('content');
-            if (ta) ta.focus();
-        });
-        
-        // Form submission handling
-        document.getElementById('commentForm').addEventListener('submit', function(e) {
-            const content = textarea.value.trim();
-            if (!content) {
-                e.preventDefault();
-                alert('Please enter a comment before submitting.');
-            }
-        });
-
-        // Submit on Enter (Shift+Enter for newline)
-        textarea.addEventListener('keydown', function(e) {
-            const isEnter = e.key === 'Enter' || e.keyCode === 13;
-            if (isEnter && !e.shiftKey) {
-                const content = textarea.value.trim();
-                if (!content) {
-                    e.preventDefault();
-                    return;
-                }
-                e.preventDefault();
-                document.getElementById('commentForm').submit();
-            }
-        });
-
-        // Live polling for new comments
-        let lastSignature = '';
-        function escapeHtml(text) {
-            return text
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-        }
-        function renderComments(comments) {
-            const container = document.getElementById('commentsList');
-            if (!container) return;
-            if (!comments || comments.length === 0) {
-                container.innerHTML = '<div class="no-comments"><p>No comments yet. Be the first to share your thoughts!</p></div>';
-                return;
-            }
-            const parts = [];
-            for (const c of comments) {
-                const content = (c.content ?? '').toString();
-                const created = (c.created_at ?? '').toString();
-                parts.push(
-                    '<div class="comment">' +
-                        '<div class="comment-content">' + escapeHtml(content) + '</div>' +
-                        '<div class="comment-timestamp">Posted on ' + escapeHtml(created) + ' UTC</div>' +
-                    '</div>'
-                );
-            }
-            container.innerHTML = parts.join('');
-            // Ensure view focuses latest messages
-            const last = container.lastElementChild;
-            if (last && typeof last.scrollIntoView === 'function') {
-                last.scrollIntoView({ block: 'end' });
-            }
-            requestAnimationFrame(scrollCommentsToBottom);
-            setTimeout(scrollCommentsToBottom, 0);
-        }
-        function scrollCommentsToBottom() {
-            const commentsSection = document.querySelector('.comments-section');
-            if (!commentsSection) return;
-            commentsSection.scrollTop = commentsSection.scrollHeight;
-        }
-        async function pollComments() {
-            try {
-                const res = await fetch('/api/comments', { cache: 'no-store' });
-                if (!res.ok) return;
-                const data = await res.json();
-                const sig = JSON.stringify(data.map(d => [d.id, d.content, d.created_at]));
-                if (sig !== lastSignature) {
-                    lastSignature = sig;
-                    renderComments(data);
-                }
-            } catch (err) {
-                // ignore transient errors
-            }
-        }
-        setTimeout(pollComments, 500);
-        setInterval(pollComments, 1500);
-
-        // Global keyboard-to-textarea focus and input
-        document.addEventListener('keydown', function(e) {
-            // Ignore when modifiers pressed
-            if (e.ctrlKey || e.metaKey || e.altKey) return;
-            // If already typing in textarea, do nothing
-            if (document.activeElement === textarea) return;
-            const key = e.key;
-            if (!key) return;
-            // Consider character keys and common input keys
-            const isChar = key.length === 1;
-            const isSpace = key === ' ' || key === 'Spacebar';
-            const isBackspace = key === 'Backspace';
-            const isEnter = key === 'Enter';
-            if (isChar || isSpace || isBackspace || isEnter) {
-                textarea.focus();
-                // Insert typed character if any
-                if (isChar || isSpace) {
-                    textarea.value += isSpace ? ' ' : key;
-                    charCount.textContent = textarea.value.length;
-                    submitBtn.disabled = textarea.value.trim().length === 0;
-                }
-                e.preventDefault();
-            }
-        });
-    </script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
