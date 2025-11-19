@@ -465,6 +465,32 @@ ports:
 2. Clear browser cache
 3. Check application logs: `docker-compose logs web`
 
+### nginx restarting / cannot load certificate
+
+If nginx restarts with an error like “cannot load certificate /etc/nginx/certs/server.crt”:
+
+- Ensure cert files exist on the host at `nginx/certs/server.crt` and `nginx/certs/server.key`
+- On Windows, make sure the drive is shared with Docker Desktop (Settings → Resources → File sharing)
+- Create a self-signed certificate (for local use only):
+  ```bash
+  openssl req -x509 -newkey rsa:2048 -nodes -keyout nginx/certs/server.key -out nginx/certs/server.crt -days 365 -subj "/CN=localhost"
+  ```
+- Restart nginx: `docker-compose restart nginx`
+
+### Browser shows “connection is not private/unsafe”
+
+This is expected with self-signed certificates. Options to remove the warning:
+
+- Use a trusted certificate (e.g., Let’s Encrypt) for a real domain
+- Or generate a locally trusted cert via mkcert (install mkcert, trust its root CA, then create a cert for localhost/your IP and place it in `nginx/certs/`)
+
+### Web container shows “unhealthy” but site works
+
+The app’s healthcheck may fail during cold start. Increase healthcheck tolerance if desired:
+
+- In `Dockerfile` healthcheck, bump `--start-period` (e.g., to `20s`), `--timeout` (e.g., `5s`), or `--retries` (e.g., `5`)
+- Rebuild: `docker-compose up -d --build`
+
 ### Limiter storage warning (development)
 
 If you see a warning about in-memory storage for rate limiting, ensure Redis is running (Compose brings it up automatically) and that the environment variable is set:

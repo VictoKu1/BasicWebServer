@@ -261,6 +261,20 @@
                 alert('Please enter a comment before submitting.');
             }
         });
+
+        // Submit on Enter (Shift+Enter for newline)
+        textarea.addEventListener('keydown', function(e) {
+            const isEnter = e.key === 'Enter' || e.keyCode === 13;
+            if (isEnter && !e.shiftKey) {
+                const content = textarea.value.trim();
+                if (!content) {
+                    e.preventDefault();
+                    return;
+                }
+                e.preventDefault();
+                document.getElementById('commentForm').submit();
+            }
+        });
     </script>
 </body>
 </html>
