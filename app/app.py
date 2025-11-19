@@ -2,11 +2,14 @@
 import os
 from flask import Flask, render_template, request, jsonify, redirect, url_for, g
 import time
+import uuid
+import logging
 from dotenv import load_dotenv
 from app.models import db, Comment
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import bleach
+from app.logging_config import configure_logging
 
 try:
     # Optional; only used outside tests
@@ -21,6 +24,7 @@ load_dotenv()
 def create_app():
     """Create and configure Flask application."""
     app = Flask(__name__)
+    logger = configure_logging(app)
     
     # Configuration
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
@@ -142,21 +146,25 @@ def create_app():
     @app.before_request
     def start_timer():
         g._start_time = time.time()
+        g.request_id = uuid.uuid4().hex
 
     @app.after_request
     def log_request(resp):
         try:
             duration_ms = int((time.time() - getattr(g, "_start_time", time.time())) * 1000)
-            log_payload = {
-                "method": request.method,
-                "path": request.path,
-                "status": resp.status_code,
-                "duration_ms": duration_ms,
-                "remote_ip": request.headers.get("X-Forwarded-For", request.remote_addr),
-                "user_agent": request.headers.get("User-Agent", ""),
-            }
-            # Basic stdout logging in JSON-like format
-            print(log_payload, flush=True)
+            resp.headers['X-Request-ID'] = getattr(g, "request_id", "")
+            logging.getLogger("app").info(
+                "request",
+                extra={
+                    "request_id": getattr(g, "request_id", ""),
+                    "method": request.method,
+                    "path": request.path,
+                    "status": resp.status_code,
+                    "duration_ms": duration_ms,
+                    "remote_ip": request.headers.get("X-Forwarded-For", request.remote_addr),
+                    "user_agent": request.headers.get("User-Agent", ""),
+                },
+            )
         except Exception:
             pass
         return resp
@@ -181,7 +189,15 @@ def create_app():
     def forbidden(_e):
         # Security event: possible CSRF or forbidden access
         try:
-            print({"event": "csrf_or_forbidden", "path": request.path, "ip": request.headers.get("X-Forwarded-For", request.remote_addr)}, flush=True)
+            logging.getLogger("app").warning(
+                "security_event",
+                extra={
+                    "event": "csrf_or_forbidden",
+                    "request_id": getattr(g, "request_id", ""),
+                    "path": request.path,
+                    "ip": request.headers.get("X-Forwarded-For", request.remote_addr),
+                },
+            )
         except Exception:
             pass
         return _error_response(403, 'Forbidden')
@@ -194,7 +210,15 @@ def create_app():
     def too_many(_e):
         # Security event: rate limit exceeded
         try:
-            print({"event": "rate_limit_exceeded", "path": request.path, "ip": request.headers.get("X-Forwarded-For", request.remote_addr)}, flush=True)
+            logging.getLogger("app").warning(
+                "security_event",
+                extra={
+                    "event": "rate_limit_exceeded",
+                    "request_id": getattr(g, "request_id", ""),
+                    "path": request.path,
+                    "ip": request.headers.get("X-Forwarded-For", request.remote_addr),
+                },
+            )
         except Exception:
             pass
         return _error_response(429, 'Too Many Requests')

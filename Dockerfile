@@ -28,14 +28,7 @@ EXPOSE 5000
 
 # Health check (no external deps)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python - <<'PY' || exit 1 \
-import urllib.request \
-try: \
-    with urllib.request.urlopen('http://localhost:5000/health', timeout=2) as r: \
-        exit(0 if r.status == 200 else 1) \
-except Exception: \
-    exit(1) \
-PY
+    CMD ["python","-c","import urllib.request, sys;\\ntry:\\n    r=urllib.request.urlopen('http://localhost:5000/health', timeout=2)\\n    sys.exit(0 if getattr(r,'status',200)==200 else 1)\\nexcept Exception:\\n    sys.exit(1)"]
 
-# Run the application with Gunicorn
-CMD ["gunicorn", "-w", "2", "-k", "gthread", "--threads", "4", "--timeout", "30", "--graceful-timeout", "30", "-b", "0.0.0.0:5000", "app.app:create_app()"]
+# Run the application with Gunicorn (stdout logging)
+CMD ["gunicorn", "-w", "2", "-k", "gthread", "--threads", "4", "--timeout", "30", "--graceful-timeout", "30", "--access-logfile", "-", "--error-logfile", "-", "-b", "0.0.0.0:5000", "app.app:create_app()"]

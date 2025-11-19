@@ -10,3 +10,4 @@ Flask-SeaSurf==1.1.1
 redis==5.0.4
 gunicorn==22.0.0
 bleach==6.1.0
+python-json-logger==2.0.7

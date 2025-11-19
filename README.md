@@ -113,12 +113,12 @@ This will:
 - Build the Flask application container
 - Pull and start PostgreSQL database container
 - Initialize the database with the required schema
-- Start Redis (rate limiting storage) and the web server on port 5000
+- Start Redis (rate limiting storage) and the web application
 
 ### 3. Access the Forum
 Open your web browser and navigate to:
-- **On the host machine**: http://localhost:5000
-- **From other LAN devices**: http://[HOST_IP]:5000
+- **On the host machine**: http://localhost (or https://localhost with TLS set up)
+- **From other LAN devices**: http(s)://[HOST_IP]
 
 To find your host IP:
 - **Windows**: Run `ipconfig` in Command Prompt, look for IPv4 Address
@@ -367,6 +367,72 @@ This is a basic forum for LAN use and traffic recording. For production use, con
 - ✅ Implement CSRF protection
 - ✅ Add content moderation
 - ✅ Set up proper logging and monitoring
+
+## 🏭 Production Deployment (single host)
+
+Follow these steps to run securely on this PC:
+
+1) Strong secrets
+- Generate a long random key (PowerShell):
+  ```powershell
+  pwsh -NoProfile -Command "[guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')"
+  ```
+- Set `SECRET_KEY` in `docker-compose.yml` under the `web` service.
+
+2) Database credentials
+- For a fresh setup, edit `init-db.sql` to use a strong password for role `forumapp` and update `DATABASE_URL` in `docker-compose.yml` accordingly.
+- If you already started once and want to re-init with new creds:
+  ```bash
+  docker-compose down -v
+  ```
+
+3) TLS certificates for nginx
+- Create directory: `nginx/certs`
+- Option A: Use a real certificate (recommended): place `server.crt` and `server.key` there.
+- Option B: Self signed for internal use (browser will warn):
+  ```bash
+  openssl req -x509 -newkey rsa:2048 -nodes -keyout nginx/certs/server.key -out nginx/certs/server.crt -days 365 -subj "/CN=localhost"
+  ```
+
+4) Firewall
+- Allow inbound TCP 80 and 443 on the host (Windows Firewall or your OS firewall).
+
+5) Start the stack
+```bash
+docker-compose up -d --build
+```
+Verify:
+- `docker-compose ps` shows db healthy, web and nginx running
+- `https://localhost/health` returns JSON “healthy” (accept self-signed warning if applicable)
+
+6) Access
+- Host: `https://localhost`
+- LAN clients: `https://<HOST_IP>`
+
+7) Logs
+- App/Gunicorn: `docker-compose logs -f web`
+- Nginx: `docker-compose logs -f nginx`
+- Database/Redis: `docker-compose logs -f db` / `docker-compose logs -f redis`
+
+8) Backups
+- Ad-hoc backup:
+  ```bash
+  docker-compose exec db pg_dump -U forumuser forumdb > backup_$(date +%F_%H%M%S).sql
+  ```
+- Restore example:
+  ```bash
+  cat backup_2025-01-01_010000.sql | docker-compose exec -T db psql -U forumuser forumdb
+  ```
+
+9) Rate limiting
+- Counters live in Redis. To reset quickly:
+  ```bash
+  docker-compose exec redis redis-cli FLUSHDB
+  docker-compose restart web
+  ```
+
+10) Autostart
+- Ensure Docker starts on boot (Docker Desktop setting), services are `restart: unless-stopped`.
 
 ## 🐛 Troubleshooting
 
